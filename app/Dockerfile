@@ -1,40 +1,20 @@
-FROM --platform=linux/amd64 surnet/alpine-wkhtmltopdf:3.17.0-0.12.6-full AS wkhtmltopdf
-FROM --platform=linux/amd64 python:3.11.1-alpine3.17
+# pull official base image
+FROM python:3.11-slim
 
+# set work directory
 WORKDIR /usr/src/app
 
+# set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-RUN apk add --no-cache \
-    libstdc++ \
-    libx11 \
-    libxrender \
-    libxext \
-    libssl1.1 \
-    ca-certificates \
-    fontconfig \
-    freetype \
-    ttf-dejavu \
-    ttf-droid \
-    ttf-freefont \
-    ttf-liberation \
-    # more fonts
-  && apk add --no-cache --virtual .build-deps \
-    msttcorefonts-installer \
-  # Install microsoft fonts
-  && update-ms-fonts \
-  && fc-cache -f \
-  # Clean up when done
-  && rm -rf /tmp/* \
-  && apk del .build-deps
-
 # install psycopg2 dependencies
-RUN apk add --no-cache postgresql-dev gcc python3-dev musl-dev linux-headers g++ openssl
+RUN apt-get update && apt-get install -y libpq-dev gcc python3-dev musl-dev ffmpeg libsm6 libxext6 libgl1
+RUN apt install -y netcat-openbsd
 
-COPY --from=wkhtmltopdf /bin/wkhtmltopdf /bin/wkhtmltopdf
 
-RUN pip install --upgrade pip
+# install dependencies
+RUN pip install --upgrade pip setuptools wheel
 COPY ./requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -43,8 +23,9 @@ COPY ./entrypoint.sh .
 RUN sed -i 's/\r$//g' /usr/src/app/entrypoint.sh
 RUN chmod +x /usr/src/app/entrypoint.sh
 
-
+# copy project
 COPY . .
 
 # run entrypoint.sh
 ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+
